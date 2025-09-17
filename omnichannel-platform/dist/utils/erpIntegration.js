@@ -24,7 +24,7 @@ class ERPIntegration {
                 return;
             }
             // 2. Buscar todas as mensagens da conversa
-            const messages = await Message_1.MessageModel.findByConversationId(conversationId, 1000, 0);
+            const messages = await Message_1.MessageModel.findByConversation(conversationId, 1000, 0);
             if (!messages || messages.length === 0) {
                 console.warn(`⚠️ Nenhuma mensagem encontrada para conversa ${conversationId}`);
                 return;

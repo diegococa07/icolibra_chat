@@ -54,6 +54,7 @@ export declare class AuthMiddleware {
     static logAuthenticatedAction(req: Request, res: Response, next: NextFunction): void;
 }
 export declare const authenticate: typeof AuthMiddleware.authenticate;
+export declare const requireAuth: typeof AuthMiddleware.requireFullAuth;
 export declare const requireFullAuth: typeof AuthMiddleware.requireFullAuth;
 export declare const requireTemporaryAuth: typeof AuthMiddleware.requireTemporaryAuth;
 export declare const requireRole: typeof AuthMiddleware.requireRole;

@@ -1,5 +1,5 @@
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
+import * as jwt from 'jsonwebtoken';
 import { authenticator } from 'otplib';
 import QRCode from 'qrcode';
 import { User, UserRole } from '../types';
@@ -7,6 +7,11 @@ import { User, UserRole } from '../types';
 // Configurações
 const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-here';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
+
+// Garantir que JWT_SECRET seja uma string válida
+if (!JWT_SECRET || JWT_SECRET.length < 32) {
+  throw new Error('JWT_SECRET deve ter pelo menos 32 caracteres');
+}
 const BCRYPT_ROUNDS = 12;
 
 // Interfaces para tokens
@@ -90,9 +95,9 @@ export class JWTUtils {
       type: 'temporary'
     };
 
-    return jwt.sign(payload, JWT_SECRET, { 
+    return jwt.sign(payload, JWT_SECRET as jwt.Secret, { 
       expiresIn: '30m' // Token temporário expira em 30 minutos
-    });
+    } as jwt.SignOptions);
   }
 
   // Gerar token completo (após verificação de 2FA)
@@ -105,15 +110,15 @@ export class JWTUtils {
       type: 'full'
     };
 
-    return jwt.sign(payload, JWT_SECRET, { 
+    return jwt.sign(payload, JWT_SECRET as jwt.Secret, { 
       expiresIn: JWT_EXPIRES_IN
-    });
+    } as jwt.SignOptions);
   }
 
   // Verificar e decodificar token
   static verifyToken(token: string): JWTPayload | null {
     try {
-      const decoded = jwt.verify(token, JWT_SECRET) as JWTPayload;
+      const decoded = jwt.verify(token, JWT_SECRET as jwt.Secret) as JWTPayload;
       return decoded;
     } catch (error) {
       console.error('Erro ao verificar token:', error);

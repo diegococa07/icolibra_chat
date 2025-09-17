@@ -292,6 +292,7 @@ export class AuthMiddleware {
 
 // Exportar middlewares individuais para facilitar o uso
 export const authenticate = AuthMiddleware.authenticate;
+export const requireAuth = AuthMiddleware.requireFullAuth; // Alias para compatibilidade
 export const requireFullAuth = AuthMiddleware.requireFullAuth;
 export const requireTemporaryAuth = AuthMiddleware.requireTemporaryAuth;
 export const requireRole = AuthMiddleware.requireRole;

@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.logAuthenticatedAction = exports.optionalAuth = exports.requireOwnershipOrAdmin = exports.requireAdminOrAgent = exports.requireAgent = exports.requireAdmin = exports.requireRole = exports.requireTemporaryAuth = exports.requireFullAuth = exports.authenticate = exports.AuthMiddleware = void 0;
+exports.logAuthenticatedAction = exports.optionalAuth = exports.requireOwnershipOrAdmin = exports.requireAdminOrAgent = exports.requireAgent = exports.requireAdmin = exports.requireRole = exports.requireTemporaryAuth = exports.requireFullAuth = exports.requireAuth = exports.authenticate = exports.AuthMiddleware = void 0;
 const auth_1 = require("../utils/auth");
 const types_1 = require("../types");
 class AuthMiddleware {
@@ -248,6 +248,7 @@ class AuthMiddleware {
 exports.AuthMiddleware = AuthMiddleware;
 // Exportar middlewares individuais para facilitar o uso
 exports.authenticate = AuthMiddleware.authenticate;
+exports.requireAuth = AuthMiddleware.requireFullAuth; // Alias para compatibilidade
 exports.requireFullAuth = AuthMiddleware.requireFullAuth;
 exports.requireTemporaryAuth = AuthMiddleware.requireTemporaryAuth;
 exports.requireRole = AuthMiddleware.requireRole;
