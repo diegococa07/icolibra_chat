@@ -1,7 +1,8 @@
 // Enums para os tipos de dados
 export enum UserRole {
   ADMIN = 'ADMIN',
-  AGENT = 'AGENT'
+  AGENT = 'AGENT',
+  SUPERVISOR = 'SUPERVISOR'
 }
 
 export enum ChannelType {
@@ -22,13 +23,85 @@ export enum SenderType {
   AGENT = 'AGENT'
 }
 
+export enum CampaignStatus {
+  DRAFT = 'DRAFT',
+  SCHEDULED = 'SCHEDULED',
+  SENDING = 'SENDING',
+  COMPLETED = 'COMPLETED'
+}
+
+export enum MessageTemplateStatus {
+  DRAFT = 'DRAFT',
+  PENDING_APPROVAL = 'PENDING_APPROVAL',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED'
+}
+
 // Interfaces para as entidades
+export interface Team {
+  id: string;
+  name: string;
+  created_at?: Date;
+}
+
+export interface SystemMessage {
+  id: string;
+  message_key: string;
+  content: string;
+  description?: string;
+  created_at?: Date;
+  updated_at?: Date;
+}
+
+export interface WriteAction {
+  id: string;
+  name: string;
+  http_method: 'POST' | 'PUT';
+  endpoint: string;
+  request_body_template: string;
+  is_active: boolean;
+  created_at?: Date;
+  updated_at?: Date;
+}
+
+export interface MessageTemplate {
+  id: string;
+  name: string;
+  body: string;
+  whatsapp_template_id?: string;
+  status: MessageTemplateStatus;
+  created_at?: Date;
+  updated_at?: Date;
+}
+
+export interface Campaign {
+  id: string;
+  name: string;
+  message_template_id: string;
+  target_criteria: any; // JSONB
+  template_variables: any; // JSONB
+  scheduled_at?: Date;
+  status: CampaignStatus;
+  created_at?: Date;
+  updated_at?: Date;
+}
+
+export interface ConversationVariable {
+  id: string;
+  conversation_id: string;
+  variable_name: string;
+  variable_value: string;
+  created_at?: Date;
+  updated_at?: Date;
+}
+
 export interface User {
   id: string;
   email: string;
   full_name?: string;
   encrypted_password: string;
   role: UserRole;
+  team_id?: string;
   two_factor_secret?: string;
   is_two_factor_enabled: boolean;
   created_at: Date;
@@ -41,6 +114,7 @@ export interface Settings {
   erp_api_base_url?: string;
   erp_api_auth_token?: string;
   webchat_snippet_id?: string;
+  erp_connection_status?: string;
   updated_at?: Date;
 }
 
@@ -60,6 +134,7 @@ export interface Conversation {
   external_protocol?: string;
   created_at: Date;
   closed_at?: Date;
+  first_agent_response_at?: Date;
 }
 
 export interface Message {
@@ -85,6 +160,7 @@ export interface CreateUser {
   full_name?: string;
   encrypted_password: string;
   role: UserRole;
+  team_id?: string;
   two_factor_secret?: string;
   is_two_factor_enabled?: boolean;
 }
@@ -95,6 +171,7 @@ export interface CreateSettings {
   erp_api_base_url?: string;
   erp_api_auth_token?: string;
   webchat_snippet_id?: string;
+  erp_connection_status?: string;
 }
 
 export interface CreateChannel {
@@ -109,6 +186,8 @@ export interface CreateConversation {
   assignee_id?: string;
   queue?: string;
   external_protocol?: string;
+  first_agent_response_at?: Date;
+  closed_at?: string;
 }
 
 export interface CreateMessage {
@@ -123,6 +202,38 @@ export interface CreateChatbotFlow {
   name: string;
   flow_definition: any;
   is_active?: boolean;
+}
+
+export interface CreateMessageTemplate {
+  name: string;
+  body: string;
+  whatsapp_template_id?: string;
+  status?: MessageTemplateStatus;
+}
+
+export interface UpdateMessageTemplate {
+  name?: string;
+  body?: string;
+  whatsapp_template_id?: string;
+  status?: MessageTemplateStatus;
+}
+
+export interface CreateCampaign {
+  name: string;
+  message_template_id: string;
+  target_criteria: any; // JSONB
+  template_variables: any; // JSONB
+  scheduled_at?: Date;
+  status?: CampaignStatus;
+}
+
+export interface UpdateCampaign {
+  name?: string;
+  message_template_id?: string;
+  target_criteria?: any; // JSONB
+  template_variables?: any; // JSONB
+  scheduled_at?: Date;
+  status?: CampaignStatus;
 }
 
 
@@ -181,7 +292,7 @@ export interface WebchatState {
 // Tipos para nós do fluxo
 export interface FlowNode {
   id: string;
-  type: 'sendMessage' | 'menuButtons' | 'integration' | 'transfer';
+  type: 'sendMessage' | 'menuButtons' | 'integration' | 'transfer' | 'collectInfo' | 'executeWriteAction';
   position: { x: number; y: number };
   data: {
     message?: string;
@@ -189,6 +300,13 @@ export interface FlowNode {
     action?: string;
     input?: string;
     queue?: string;
+    // Propriedades para nó "Coletar Informação"
+    userMessage?: string;
+    validationType?: 'text' | 'email' | 'phone';
+    variableName?: string;
+    errorMessage?: string;
+    // Propriedades para nó "Executar Ação de Escrita"
+    writeActionId?: string;
   };
 }
 

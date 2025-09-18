@@ -8,9 +8,11 @@ export declare class UserModel {
     static update(id: string, updateData: Partial<CreateUser>): Promise<User | null>;
     static delete(id: string): Promise<boolean>;
     static toggleTwoFactor(id: string, enabled: boolean, secret?: string): Promise<User | null>;
-    static countByRole(): Promise<{
+    static getStatsByRole(): Promise<Array<{
         role: UserRole;
         count: number;
-    }[]>;
+    }>>;
+    static findByTeamId(teamId: string): Promise<User[]>;
+    static getSupervisorTeamId(supervisorId: string): Promise<string | null>;
 }
 //# sourceMappingURL=User.d.ts.map

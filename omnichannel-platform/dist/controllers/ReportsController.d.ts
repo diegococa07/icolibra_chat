@@ -36,8 +36,9 @@ export declare class ReportsController {
      */
     private static getExportData;
     /**
-     * Converter dados para formato CSV
+     * Converter dados para CSV
      */
     private static convertToCSV;
+    static getPerformance(req: Request, res: Response): Promise<void>;
 }
 //# sourceMappingURL=ReportsController.d.ts.map

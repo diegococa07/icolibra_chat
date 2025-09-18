@@ -201,6 +201,27 @@ export class AuthMiddleware {
   }
 
   /**
+   * Middleware para verificar se o usuário é Supervisor
+   */
+  static requireSupervisor(req: Request, res: Response, next: NextFunction): void {
+    AuthMiddleware.requireRole(UserRole.SUPERVISOR)(req, res, next);
+  }
+
+  /**
+   * Middleware para verificar se o usuário é Admin ou Supervisor
+   */
+  static requireAdminOrSupervisor(req: Request, res: Response, next: NextFunction): void {
+    AuthMiddleware.requireRole([UserRole.ADMIN, UserRole.SUPERVISOR])(req, res, next);
+  }
+
+  /**
+   * Middleware para verificar se o usuário é Admin, Supervisor ou Agent
+   */
+  static requireAdminOrSupervisorOrAgent(req: Request, res: Response, next: NextFunction): void {
+    AuthMiddleware.requireRole([UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.AGENT])(req, res, next);
+  }
+
+  /**
    * Middleware para verificar se o usuário pode acessar dados de outro usuário
    * Admins podem acessar qualquer usuário, Agents só podem acessar seus próprios dados
    */
@@ -292,13 +313,18 @@ export class AuthMiddleware {
 
 // Exportar middlewares individuais para facilitar o uso
 export const authenticate = AuthMiddleware.authenticate;
+export const authMiddleware = AuthMiddleware.authenticate; // Alias para compatibilidade
 export const requireAuth = AuthMiddleware.requireFullAuth; // Alias para compatibilidade
 export const requireFullAuth = AuthMiddleware.requireFullAuth;
 export const requireTemporaryAuth = AuthMiddleware.requireTemporaryAuth;
 export const requireRole = AuthMiddleware.requireRole;
 export const requireAdmin = AuthMiddleware.requireAdmin;
 export const requireAgent = AuthMiddleware.requireAgent;
+export const requireSupervisor = AuthMiddleware.requireSupervisor;
 export const requireAdminOrAgent = AuthMiddleware.requireAdminOrAgent;
+export const requireAdminOrSupervisor = AuthMiddleware.requireAdminOrSupervisor;
+export const adminOrSupervisorMiddleware = AuthMiddleware.requireAdminOrSupervisor; // Alias para compatibilidade
+export const requireAdminOrSupervisorOrAgent = AuthMiddleware.requireAdminOrSupervisorOrAgent;
 export const requireOwnershipOrAdmin = AuthMiddleware.requireOwnershipOrAdmin;
 export const optionalAuth = AuthMiddleware.optionalAuth;
 export const logAuthenticatedAction = AuthMiddleware.logAuthenticatedAction;

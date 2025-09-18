@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.UserModel = void 0;
 const uuid_1 = require("uuid");
 const connection_1 = require("../database/connection");
+const types_1 = require("../types");
 class UserModel {
     // Criar um novo usuário
     static async create(userData) {
@@ -84,8 +85,8 @@ class UserModel {
         const result = await (0, connection_1.query)(sql, [enabled, secret, id]);
         return result.rows[0] || null;
     }
-    // Contar usuários por role
-    static async countByRole() {
+    // Estatísticas de usuários por role
+    static async getStatsByRole() {
         const sql = `
       SELECT role, COUNT(*) as count 
       FROM users 
@@ -96,6 +97,18 @@ class UserModel {
             role: row.role,
             count: parseInt(row.count)
         }));
+    }
+    // Buscar usuários por team_id
+    static async findByTeamId(teamId) {
+        const sql = 'SELECT * FROM users WHERE team_id = $1 ORDER BY created_at DESC';
+        const result = await (0, connection_1.query)(sql, [teamId]);
+        return result.rows;
+    }
+    // Buscar team_id do supervisor
+    static async getSupervisorTeamId(supervisorId) {
+        const sql = 'SELECT team_id FROM users WHERE id = $1 AND role = $2';
+        const result = await (0, connection_1.query)(sql, [supervisorId, types_1.UserRole.SUPERVISOR]);
+        return result.rows[0]?.team_id || null;
     }
 }
 exports.UserModel = UserModel;

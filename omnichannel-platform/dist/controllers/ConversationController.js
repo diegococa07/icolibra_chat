@@ -5,6 +5,7 @@ const Conversation_1 = require("../models/Conversation");
 const Message_1 = require("../models/Message");
 const Channel_1 = require("../models/Channel");
 const ChatbotFlow_1 = require("../models/ChatbotFlow");
+const User_1 = require("../models/User");
 const botEngine_1 = require("../utils/botEngine");
 const auth_1 = require("../utils/auth");
 const erpIntegration_1 = require("../utils/erpIntegration");
@@ -210,6 +211,22 @@ class ConversationController {
                 filters.status = status;
             if (queue)
                 filters.queue = queue;
+            // Filtro automático para Supervisores
+            if (req.user?.role === 'SUPERVISOR') {
+                // Buscar team_id do supervisor
+                const supervisorTeamId = await User_1.UserModel.getSupervisorTeamId(req.user.userId);
+                if (supervisorTeamId) {
+                    // Buscar usuários da equipe do supervisor
+                    const teamMembers = await User_1.UserModel.findByTeamId(supervisorTeamId);
+                    const teamMemberIds = teamMembers.map(member => member.id);
+                    // Filtrar apenas conversas atribuídas a membros da equipe
+                    filters.assignee_id_in = teamMemberIds;
+                }
+                else {
+                    // Se supervisor não tem equipe, não mostrar nenhuma conversa
+                    filters.assignee_id_in = [];
+                }
+            }
             const conversations = await Conversation_1.ConversationModel.findAll(filters, parseInt(limit), parseInt(offset));
             // Buscar última mensagem de cada conversa
             const conversationsWithLastMessage = await Promise.all(conversations.map(async (conversation) => {
@@ -345,6 +362,68 @@ class ConversationController {
         }
         catch (error) {
             console.error('Erro ao obter estatísticas:', error);
+            res.status(500).json({
+                error: 'Erro interno do servidor'
+            });
+        }
+    }
+    // POST /api/conversations/:id/agent-message
+    // Enviar mensagem como atendente (protegido)
+    static async sendAgentMessage(req, res) {
+        try {
+            const { id: conversationId } = req.params;
+            const { content } = req.body;
+            const currentUser = req.user;
+            if (!conversationId) {
+                res.status(400).json({
+                    error: 'ID da conversa é obrigatório'
+                });
+                return;
+            }
+            if (!content || content.trim().length === 0) {
+                res.status(400).json({
+                    error: 'Conteúdo da mensagem é obrigatório'
+                });
+                return;
+            }
+            // Verificar se a conversa existe
+            const conversation = await Conversation_1.ConversationModel.findById(conversationId);
+            if (!conversation) {
+                res.status(404).json({
+                    error: 'Conversa não encontrada'
+                });
+                return;
+            }
+            // Verificar se o usuário pode enviar mensagem nesta conversa
+            if (currentUser.role === 'AGENT' && conversation.assignee_id !== currentUser.userId) {
+                res.status(403).json({
+                    error: 'Você não tem permissão para enviar mensagem nesta conversa'
+                });
+                return;
+            }
+            // Registrar primeira resposta do atendente se ainda não foi registrada
+            if (!conversation.first_agent_response_at) {
+                await Conversation_1.ConversationModel.update(conversationId, {
+                    first_agent_response_at: new Date()
+                });
+            }
+            // Salvar mensagem do atendente
+            const agentMessage = {
+                conversation_id: conversationId,
+                sender_type: 'AGENT',
+                sender_id: currentUser.userId,
+                content: auth_1.ValidationUtils.sanitizeInput(content),
+                content_type: 'TEXT'
+            };
+            const savedMessage = await Message_1.MessageModel.create(agentMessage);
+            (0, socketManager_1.emitMessageReceived)(savedMessage, conversationId);
+            res.status(201).json({
+                message: 'Mensagem enviada com sucesso',
+                data: savedMessage
+            });
+        }
+        catch (error) {
+            console.error('Erro ao enviar mensagem do atendente:', error);
             res.status(500).json({
                 error: 'Erro interno do servidor'
             });

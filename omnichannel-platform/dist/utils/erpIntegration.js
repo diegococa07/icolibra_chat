@@ -8,7 +8,37 @@ const axios_1 = __importDefault(require("axios"));
 const Conversation_1 = require("../models/Conversation");
 const Message_1 = require("../models/Message");
 const Settings_1 = require("../models/Settings");
+const User_1 = require("../models/User");
 const socketManager_1 = require("./socketManager");
+/**
+ * Detecta se estamos no modo de demonstração
+ * Verifica se existe um usuário demo@plataforma.com logado ou ativo
+ */
+async function isDemoMode() {
+    try {
+        const demoUser = await User_1.UserModel.findByEmail('demo@plataforma.com');
+        return !!demoUser;
+    }
+    catch (error) {
+        console.error('Erro ao verificar modo demo:', error);
+        return false;
+    }
+}
+/**
+ * Obter URL base para API baseada no modo (demo ou produção)
+ */
+async function getApiBaseUrl() {
+    const isDemo = await isDemoMode();
+    if (isDemo) {
+        // No modo demo, usar nossa API mock interna
+        const baseUrl = process.env.API_BASE_URL || 'http://localhost:3000';
+        console.log('🎭 Modo Demo ativado - usando API Mock interna');
+        return baseUrl;
+    }
+    // Modo produção - usar configurações do sistema
+    const settings = await Settings_1.SettingsModel.findFirst();
+    return settings?.erp_api_base_url || '';
+}
 class ERPIntegration {
     /**
      * Função principal que é chamada automaticamente quando uma conversa é encerrada
@@ -66,10 +96,20 @@ class ERPIntegration {
         }
     }
     /**
-     * Buscar configurações do ERP no banco de dados
+     * Buscar configurações do ERP (com suporte ao modo demo)
      */
     static async getERPSettings() {
         try {
+            const apiBaseUrl = await getApiBaseUrl();
+            const isDemo = await isDemoMode();
+            if (isDemo) {
+                // Modo demo - usar configurações mock
+                return {
+                    erp_api_base_url: apiBaseUrl,
+                    erp_api_auth_token: 'demo-token-12345'
+                };
+            }
+            // Modo produção - usar configurações reais
             const settings = await Settings_1.SettingsModel.findFirst();
             return {
                 erp_api_base_url: settings?.erp_api_base_url,

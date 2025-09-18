@@ -15,6 +15,11 @@ const flows_1 = __importDefault(require("./routes/flows"));
 const conversations_1 = __importDefault(require("./routes/conversations"));
 const customers_1 = __importDefault(require("./routes/customers"));
 const reports_1 = __importDefault(require("./routes/reports"));
+const teams_1 = __importDefault(require("./routes/teams"));
+const systemMessages_1 = __importDefault(require("./routes/systemMessages"));
+const writeActions_1 = __importDefault(require("./routes/writeActions"));
+const mockErp_1 = __importDefault(require("./routes/mockErp"));
+const public_1 = __importDefault(require("./routes/public"));
 const auth_2 = require("./middleware/auth");
 const socketManager_1 = require("./utils/socketManager");
 // Carregar variáveis de ambiente
@@ -41,6 +46,11 @@ app.use('/api/flows', flows_1.default);
 app.use('/api/conversations', conversations_1.default);
 app.use('/api/customers', customers_1.default);
 app.use('/api/reports', reports_1.default);
+app.use('/api/teams', teams_1.default);
+app.use('/api/system-messages', systemMessages_1.default);
+app.use('/api/write-actions', writeActions_1.default);
+app.use('/api/mock-erp', mockErp_1.default);
+app.use('/api/public', public_1.default);
 // Rota de health check
 app.get('/health', (req, res) => {
     res.json({
@@ -81,7 +91,7 @@ app.use((err, req, res, next) => {
     });
 });
 // Middleware para rotas não encontradas
-app.use('*', (req, res) => {
+app.use((req, res) => {
     res.status(404).json({
         error: {
             message: 'Rota não encontrada',

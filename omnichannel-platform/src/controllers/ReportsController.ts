@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
+import { query } from '../database/connection';
 import { ConversationModel } from '../models/Conversation';
 import { ChannelModel } from '../models/Channel';
+import { UserModel } from '../models/User';
 
 // Interface para métricas de relatório
 interface ReportSummary {
@@ -188,7 +190,7 @@ export class ReportsController {
    * Obter total de conversas encerradas no período
    */
   private static async getTotalConversations(periodFilter: PeriodFilter): Promise<number> {
-    const result = await ConversationModel.query(`
+    const result = await query(`
       SELECT COUNT(*) as total
       FROM conversations 
       WHERE status = 'CLOSED' 
@@ -203,7 +205,7 @@ export class ReportsController {
    * Obter conversas agrupadas por canal
    */
   private static async getConversationsByChannel(periodFilter: PeriodFilter): Promise<any[]> {
-    const result = await ConversationModel.query(`
+    const result = await query(`
       SELECT 
         c.type as channel_type,
         CASE 
@@ -233,7 +235,7 @@ export class ReportsController {
    */
   private static async getAutomationEfficiency(periodFilter: PeriodFilter): Promise<any> {
     // Conversas resolvidas apenas pelo bot (sem assignee_id)
-    const botOnlyResult = await ConversationModel.query(`
+    const botOnlyResult = await query(`
       SELECT COUNT(*) as count
       FROM conversations 
       WHERE status = 'CLOSED' 
@@ -243,7 +245,7 @@ export class ReportsController {
     `, [periodFilter.start_date, periodFilter.end_date]);
 
     // Conversas com intervenção humana (com assignee_id)
-    const humanInterventionResult = await ConversationModel.query(`
+    const humanInterventionResult = await query(`
       SELECT COUNT(*) as count
       FROM conversations 
       WHERE status = 'CLOSED' 
@@ -270,7 +272,7 @@ export class ReportsController {
    */
   private static async getAdditionalMetrics(periodFilter: PeriodFilter): Promise<any> {
     // Média de mensagens por conversa
-    const avgMessagesResult = await ConversationModel.query(`
+    const avgMessagesResult = await query(`
       SELECT 
         ROUND(AVG(message_count), 1) as avg_messages
       FROM (
@@ -287,7 +289,7 @@ export class ReportsController {
     `, [periodFilter.start_date, periodFilter.end_date]);
 
     // Conversas com protocolo registrado
-    const protocolResult = await ConversationModel.query(`
+    const protocolResult = await query(`
       SELECT 
         COUNT(*) as total,
         COUNT(external_protocol) as with_protocol
@@ -313,7 +315,7 @@ export class ReportsController {
    * Calcular breakdown diário para relatório detalhado
    */
   private static async calculateDailyBreakdown(periodFilter: PeriodFilter): Promise<any[]> {
-    const result = await ConversationModel.query(`
+    const result = await query(`
       SELECT 
         DATE(closed_at) as date,
         COUNT(*) as total_conversations,
@@ -385,7 +387,7 @@ export class ReportsController {
    * Obter dados para exportação
    */
   private static async getExportData(periodFilter: PeriodFilter): Promise<any[]> {
-    const result = await ConversationModel.query(`
+    const result = await query(`
       SELECT 
         conv.id,
         conv.customer_identifier,
@@ -413,10 +415,12 @@ export class ReportsController {
   }
 
   /**
-   * Converter dados para formato CSV
+   * Converter dados para CSV
    */
   private static convertToCSV(data: any[]): string {
-    if (data.length === 0) return '';
+    if (!data || data.length === 0) {
+      return '';
+    }
 
     const headers = Object.keys(data[0]);
     const csvHeaders = headers.join(',');
@@ -430,5 +434,74 @@ export class ReportsController {
 
     return [csvHeaders, ...csvRows].join('\n');
   }
-}
 
+  // GET /api/reports/performance
+  // Obter relatórios de performance (TMA e TMR) (protegido - ADMIN e SUPERVISOR)
+  static async getPerformance(req: Request, res: Response): Promise<void> {
+    try {
+      const { period = 'last30days', team_id } = req.query;
+      const currentUser = req.user!;
+
+      let teamMemberIds: string[] | undefined;
+
+      // Se for supervisor, filtrar apenas sua equipe
+      if (currentUser.role === 'SUPERVISOR') {
+        const supervisorTeamId = await UserModel.getSupervisorTeamId(currentUser.userId);
+        
+        if (supervisorTeamId) {
+          const teamMembers = await UserModel.findByTeamId(supervisorTeamId);
+          teamMemberIds = teamMembers.map(member => member.id);
+        } else {
+          teamMemberIds = []; // Se supervisor não tem equipe, não mostrar dados
+        }
+      } else if (team_id && typeof team_id === 'string') {
+        // Se admin especificou uma equipe específica
+        const teamMembers = await UserModel.findByTeamId(team_id);
+        teamMemberIds = teamMembers.map(member => member.id);
+      }
+
+      // Calcular TMA (Tempo Médio de Atendimento)
+      const tmaSeconds = await ConversationModel.calculateTMA(period as string, teamMemberIds);
+      const tmaFormatted = tmaSeconds ? ConversationModel.formatTime(tmaSeconds) : null;
+
+      // Calcular TMR (Tempo de Primeira Resposta)
+      const tmrSeconds = await ConversationModel.calculateTMR(period as string, teamMemberIds);
+      const tmrFormatted = tmrSeconds ? ConversationModel.formatTime(tmrSeconds) : null;
+
+      // Calcular período para contexto
+      const periodFilter = ReportsController.calculatePeriodDates(period as string);
+
+      res.json({
+        success: true,
+        data: {
+          period: {
+            label: periodFilter?.label || period,
+            start_date: periodFilter?.start_date,
+            end_date: periodFilter?.end_date
+          },
+          performance_metrics: {
+            tma: {
+              seconds: tmaSeconds,
+              formatted: tmaFormatted,
+              description: 'Tempo Médio de Atendimento (do início ao fechamento da conversa)'
+            },
+            tmr: {
+              seconds: tmrSeconds,
+              formatted: tmrFormatted,
+              description: 'Tempo de Primeira Resposta (do início até a primeira resposta do atendente)'
+            }
+          },
+          team_filter: team_id ? { team_id } : null
+        }
+      });
+
+    } catch (error) {
+      console.error('Erro ao obter relatórios de performance:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Erro interno do servidor',
+        message: 'Não foi possível obter os relatórios de performance'
+      });
+    }
+  }
+}

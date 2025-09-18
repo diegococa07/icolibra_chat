@@ -1,0 +1,11 @@
+{"level":"info","message":"Queue created: omnichannel-campaign-scheduler","service":"omnichannel-platform","timestamp":"2025-09-18 02:40:43"}
+{"level":"info","message":"Queue created: omnichannel-campaign-sender","service":"omnichannel-platform","timestamp":"2025-09-18 02:40:43"}
+{"level":"info","message":"Queue created: omnichannel-message-processor","service":"omnichannel-platform","timestamp":"2025-09-18 02:40:43"}
+{"level":"error","message":"Error initializing jobs: TypeError: Cannot read properties of undefined (reading 'campaignScheduler')","service":"omnichannel-platform","timestamp":"2025-09-18 02:40:43"}
+{"level":"info","message":"Queue created: omnichannel-campaign-scheduler","service":"omnichannel-platform","timestamp":"2025-09-18 02:42:13"}
+{"level":"info","message":"Queue created: omnichannel-campaign-sender","service":"omnichannel-platform","timestamp":"2025-09-18 02:42:13"}
+{"level":"info","message":"Queue created: omnichannel-message-processor","service":"omnichannel-platform","timestamp":"2025-09-18 02:42:13"}
+{"level":"info","message":"Queue created: omnichannel-campaign-scheduler","service":"omnichannel-platform","timestamp":"2025-09-18 02:42:30"}
+{"level":"info","message":"Queue created: omnichannel-campaign-sender","service":"omnichannel-platform","timestamp":"2025-09-18 02:42:30"}
+{"level":"info","message":"Queue created: omnichannel-message-processor","service":"omnichannel-platform","timestamp":"2025-09-18 02:42:30"}
+{"level":"error","message":"Error initializing jobs: TypeError: Cannot read properties of undefined (reading 'campaignScheduler')","service":"omnichannel-platform","timestamp":"2025-09-18 02:42:31"}

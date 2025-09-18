@@ -1,6 +1,7 @@
 export declare enum UserRole {
     ADMIN = "ADMIN",
-    AGENT = "AGENT"
+    AGENT = "AGENT",
+    SUPERVISOR = "SUPERVISOR"
 }
 export declare enum ChannelType {
     WHATSAPP = "WHATSAPP",
@@ -17,12 +18,44 @@ export declare enum SenderType {
     BOT = "BOT",
     AGENT = "AGENT"
 }
+export interface Team {
+    id: string;
+    name: string;
+    created_at?: Date;
+}
+export interface SystemMessage {
+    id: string;
+    message_key: string;
+    content: string;
+    description?: string;
+    created_at?: Date;
+    updated_at?: Date;
+}
+export interface WriteAction {
+    id: string;
+    name: string;
+    http_method: 'POST' | 'PUT';
+    endpoint: string;
+    request_body_template: string;
+    is_active: boolean;
+    created_at?: Date;
+    updated_at?: Date;
+}
+export interface ConversationVariable {
+    id: string;
+    conversation_id: string;
+    variable_name: string;
+    variable_value: string;
+    created_at?: Date;
+    updated_at?: Date;
+}
 export interface User {
     id: string;
     email: string;
     full_name?: string;
     encrypted_password: string;
     role: UserRole;
+    team_id?: string;
     two_factor_secret?: string;
     is_two_factor_enabled: boolean;
     created_at: Date;
@@ -51,6 +84,7 @@ export interface Conversation {
     external_protocol?: string;
     created_at: Date;
     closed_at?: Date;
+    first_agent_response_at?: Date;
 }
 export interface Message {
     id: string;
@@ -151,7 +185,7 @@ export interface WebchatState {
 }
 export interface FlowNode {
     id: string;
-    type: 'sendMessage' | 'menuButtons' | 'integration' | 'transfer';
+    type: 'sendMessage' | 'menuButtons' | 'integration' | 'transfer' | 'collectInfo' | 'executeWriteAction';
     position: {
         x: number;
         y: number;
@@ -162,6 +196,11 @@ export interface FlowNode {
         action?: string;
         input?: string;
         queue?: string;
+        userMessage?: string;
+        validationType?: 'text' | 'email' | 'phone';
+        variableName?: string;
+        errorMessage?: string;
+        writeActionId?: string;
     };
 }
 export interface FlowEdge {

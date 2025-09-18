@@ -4,5 +4,9 @@ export { ChannelModel } from './Channel';
 export { ConversationModel } from './Conversation';
 export { MessageModel } from './Message';
 export { ChatbotFlowModel } from './ChatbotFlow';
+export { TeamModel } from './Team';
+export { SystemMessageModel } from './SystemMessage';
+export { WriteActionModel } from './WriteAction';
+export { ConversationVariableModel } from './ConversationVariable';
 export * from '../types';
 //# sourceMappingURL=index.d.ts.map

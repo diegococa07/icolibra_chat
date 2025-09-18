@@ -81,26 +81,47 @@ class ConversationModel {
         const result = await (0, connection_1.query)(sql, [queue]);
         return result.rows;
     }
-    // Listar todas as conversas com paginação
-    static async findAll(limit = 50, offset = 0) {
-        // Query para contar total
-        const countSql = 'SELECT COUNT(*) as total FROM conversations';
-        const countResult = await (0, connection_1.query)(countSql);
-        const total = parseInt(countResult.rows[0].total);
+    // Listar todas as conversas com paginação e filtros
+    static async findAll(filters = {}, limit = 50, offset = 0) {
+        // Construir WHERE clause dinamicamente
+        const whereConditions = [];
+        const values = [];
+        let paramCount = 1;
+        if (filters.status) {
+            whereConditions.push(`c.status = $${paramCount}`);
+            values.push(filters.status);
+            paramCount++;
+        }
+        if (filters.queue) {
+            whereConditions.push(`c.queue = $${paramCount}`);
+            values.push(filters.queue);
+            paramCount++;
+        }
+        if (filters.assignee_id_in && Array.isArray(filters.assignee_id_in)) {
+            if (filters.assignee_id_in.length > 0) {
+                const placeholders = filters.assignee_id_in.map(() => `$${paramCount++}`).join(',');
+                whereConditions.push(`c.assignee_id IN (${placeholders})`);
+                values.push(...filters.assignee_id_in);
+            }
+            else {
+                // Se array vazio, não retornar nenhuma conversa
+                whereConditions.push('1 = 0');
+            }
+        }
+        const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
         // Query para buscar conversas
         const sql = `
       SELECT c.*, ch.type as channel_type, u.full_name as assignee_name
       FROM conversations c
       LEFT JOIN channels ch ON c.channel_id = ch.id
       LEFT JOIN users u ON c.assignee_id = u.id
+      ${whereClause}
       ORDER BY c.created_at DESC
-      LIMIT $1 OFFSET $2
+      LIMIT $${paramCount} OFFSET $${paramCount + 1}
     `;
-        const result = await (0, connection_1.query)(sql, [limit, offset]);
-        return {
-            conversations: result.rows,
-            total
-        };
+        values.push(limit, offset);
+        const result = await (0, connection_1.query)(sql, values);
+        return result.rows;
     }
     // Atualizar conversa
     static async update(id, updateData) {
@@ -221,6 +242,87 @@ class ConversationModel {
             byChannel,
             avgResponseTime
         };
+    }
+    // Calcular Tempo Médio de Atendimento (TMA)
+    static async calculateTMA(period = 'last30days', teamMemberIds) {
+        let whereClause = "WHERE c.closed_at IS NOT NULL";
+        const values = [];
+        let paramCount = 1;
+        // Filtro de período
+        const periodDays = ConversationModel.getPeriodDays(period);
+        if (periodDays > 0) {
+            whereClause += ` AND c.closed_at >= NOW() - INTERVAL '${periodDays} days'`;
+        }
+        // Filtro por equipe (para supervisores)
+        if (teamMemberIds && teamMemberIds.length > 0) {
+            const placeholders = teamMemberIds.map(() => `$${paramCount++}`).join(',');
+            whereClause += ` AND c.assignee_id IN (${placeholders})`;
+            values.push(...teamMemberIds);
+        }
+        const sql = `
+      SELECT AVG(EXTRACT(EPOCH FROM (c.closed_at - c.created_at))) as avg_seconds
+      FROM conversations c
+      ${whereClause}
+    `;
+        const result = await (0, connection_1.query)(sql, values);
+        const avgSeconds = result.rows[0]?.avg_seconds;
+        return avgSeconds ? parseFloat(avgSeconds) : null;
+    }
+    // Calcular Tempo de Primeira Resposta (TMR)
+    static async calculateTMR(period = 'last30days', teamMemberIds) {
+        let whereClause = "WHERE c.first_agent_response_at IS NOT NULL";
+        const values = [];
+        let paramCount = 1;
+        // Filtro de período
+        const periodDays = ConversationModel.getPeriodDays(period);
+        if (periodDays > 0) {
+            whereClause += ` AND c.first_agent_response_at >= NOW() - INTERVAL '${periodDays} days'`;
+        }
+        // Filtro por equipe (para supervisores)
+        if (teamMemberIds && teamMemberIds.length > 0) {
+            const placeholders = teamMemberIds.map(() => `$${paramCount++}`).join(',');
+            whereClause += ` AND c.assignee_id IN (${placeholders})`;
+            values.push(...teamMemberIds);
+        }
+        const sql = `
+      SELECT AVG(EXTRACT(EPOCH FROM (c.first_agent_response_at - c.created_at))) as avg_seconds
+      FROM conversations c
+      ${whereClause}
+    `;
+        const result = await (0, connection_1.query)(sql, values);
+        const avgSeconds = result.rows[0]?.avg_seconds;
+        return avgSeconds ? parseFloat(avgSeconds) : null;
+    }
+    // Converter período em dias
+    static getPeriodDays(period) {
+        switch (period) {
+            case 'today':
+                return 1;
+            case 'last7days':
+                return 7;
+            case 'last30days':
+                return 30;
+            case 'last90days':
+                return 90;
+            default:
+                return 30; // padrão
+        }
+    }
+    // Formatar tempo em segundos para formato legível
+    static formatTime(seconds) {
+        if (seconds < 60) {
+            return `${Math.round(seconds)}s`;
+        }
+        else if (seconds < 3600) {
+            const minutes = Math.floor(seconds / 60);
+            const remainingSeconds = Math.round(seconds % 60);
+            return remainingSeconds > 0 ? `${minutes}m ${remainingSeconds}s` : `${minutes}m`;
+        }
+        else {
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+        }
     }
 }
 exports.ConversationModel = ConversationModel;

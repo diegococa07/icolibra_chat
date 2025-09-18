@@ -39,6 +39,18 @@ export declare class AuthMiddleware {
      */
     static requireAdminOrAgent(req: Request, res: Response, next: NextFunction): void;
     /**
+     * Middleware para verificar se o usuário é Supervisor
+     */
+    static requireSupervisor(req: Request, res: Response, next: NextFunction): void;
+    /**
+     * Middleware para verificar se o usuário é Admin ou Supervisor
+     */
+    static requireAdminOrSupervisor(req: Request, res: Response, next: NextFunction): void;
+    /**
+     * Middleware para verificar se o usuário é Admin, Supervisor ou Agent
+     */
+    static requireAdminOrSupervisorOrAgent(req: Request, res: Response, next: NextFunction): void;
+    /**
      * Middleware para verificar se o usuário pode acessar dados de outro usuário
      * Admins podem acessar qualquer usuário, Agents só podem acessar seus próprios dados
      */
@@ -60,7 +72,10 @@ export declare const requireTemporaryAuth: typeof AuthMiddleware.requireTemporar
 export declare const requireRole: typeof AuthMiddleware.requireRole;
 export declare const requireAdmin: typeof AuthMiddleware.requireAdmin;
 export declare const requireAgent: typeof AuthMiddleware.requireAgent;
+export declare const requireSupervisor: typeof AuthMiddleware.requireSupervisor;
 export declare const requireAdminOrAgent: typeof AuthMiddleware.requireAdminOrAgent;
+export declare const requireAdminOrSupervisor: typeof AuthMiddleware.requireAdminOrSupervisor;
+export declare const requireAdminOrSupervisorOrAgent: typeof AuthMiddleware.requireAdminOrSupervisorOrAgent;
 export declare const requireOwnershipOrAdmin: typeof AuthMiddleware.requireOwnershipOrAdmin;
 export declare const optionalAuth: typeof AuthMiddleware.optionalAuth;
 export declare const logAuthenticatedAction: typeof AuthMiddleware.logAuthenticatedAction;

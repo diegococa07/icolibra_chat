@@ -115,8 +115,8 @@ export class UserModel {
     return result.rows[0] || null;
   }
 
-  // Contar usuários por role
-  static async countByRole(): Promise<{ role: UserRole; count: number }[]> {
+  // Estatísticas de usuários por role
+  static async getStatsByRole(): Promise<Array<{role: UserRole, count: number}>> {
     const sql = `
       SELECT role, COUNT(*) as count 
       FROM users 
@@ -130,5 +130,20 @@ export class UserModel {
       count: parseInt(row.count)
     }));
   }
-}
 
+  // Buscar usuários por team_id
+  static async findByTeamId(teamId: string): Promise<User[]> {
+    const sql = 'SELECT * FROM users WHERE team_id = $1 ORDER BY created_at DESC';
+    const result = await query(sql, [teamId]);
+    
+    return result.rows;
+  }
+
+  // Buscar team_id do supervisor
+  static async getSupervisorTeamId(supervisorId: string): Promise<string | null> {
+    const sql = 'SELECT team_id FROM users WHERE id = $1 AND role = $2';
+    const result = await query(sql, [supervisorId, UserRole.SUPERVISOR]);
+    
+    return result.rows[0]?.team_id || null;
+  }
+}

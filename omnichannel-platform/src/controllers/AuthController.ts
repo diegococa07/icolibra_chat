@@ -85,6 +85,22 @@ export class AuthController {
 
       // Verificar status do 2FA
       if (!user.is_two_factor_enabled) {
+        // Verificar se é usuário demo (bypass 2FA)
+        if (user.email.includes('demo@') || user.email.includes('@plataforma.com')) {
+          console.log('🔓 Bypass 2FA para usuário demo:', user.email);
+          
+          // Gerar token completo diretamente para usuários demo
+          const tokenResponse = JWTUtils.generateTokenResponse(user, 'full');
+          
+          res.status(200).json({
+            message: 'Login realizado com sucesso (modo demonstração)',
+            token: tokenResponse.token,
+            expiresIn: tokenResponse.expiresIn,
+            user: tokenResponse.user
+          });
+          return;
+        }
+        
         // Primeiro login - precisa configurar 2FA
         const temporaryToken = JWTUtils.generateTokenResponse(user, 'temporary');
         

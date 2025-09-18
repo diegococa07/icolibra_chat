@@ -7,5 +7,6 @@ export declare class ConversationController {
     static assignConversation(req: Request, res: Response): Promise<void>;
     static closeConversation(req: Request, res: Response): Promise<void>;
     static getConversationStats(req: Request, res: Response): Promise<void>;
+    static sendAgentMessage(req: Request, res: Response): Promise<void>;
 }
 //# sourceMappingURL=ConversationController.d.ts.map

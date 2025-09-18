@@ -7,28 +7,31 @@ const password_1 = require("../utils/password");
 const types_1 = require("../types");
 class UserController {
     // GET /api/users
-    // Listar todos os usuários AGENT (apenas para ADMIN)
+    // Listar todos os usuários AGENT e SUPERVISOR (apenas para ADMIN)
     static async listAgents(req, res) {
         try {
-            // Buscar apenas usuários com role AGENT
+            // Buscar usuários com role AGENT e SUPERVISOR
             const agents = await User_1.UserModel.findByRole(types_1.UserRole.AGENT);
+            const supervisors = await User_1.UserModel.findByRole(types_1.UserRole.SUPERVISOR);
+            const allUsers = [...agents, ...supervisors];
             // Remover dados sensíveis da resposta
-            const safeAgents = agents.map(agent => ({
-                id: agent.id,
-                email: agent.email,
-                full_name: agent.full_name,
-                role: agent.role,
-                is_two_factor_enabled: agent.is_two_factor_enabled,
-                created_at: agent.created_at
+            const safeUsers = allUsers.map(user => ({
+                id: user.id,
+                email: user.email,
+                full_name: user.full_name,
+                role: user.role,
+                team_id: user.team_id,
+                is_two_factor_enabled: user.is_two_factor_enabled,
+                created_at: user.created_at
             }));
             res.status(200).json({
-                message: 'Atendentes listados com sucesso',
-                users: safeAgents,
-                total: safeAgents.length
+                message: 'Usuários listados com sucesso',
+                users: safeUsers,
+                total: safeUsers.length
             });
         }
         catch (error) {
-            console.error('Erro ao listar atendentes:', error);
+            console.error('Erro ao listar usuários:', error);
             res.status(500).json({
                 error: 'Erro interno do servidor'
             });
@@ -74,10 +77,10 @@ class UserController {
         }
     }
     // POST /api/users
-    // Criar novo usuário AGENT (apenas para ADMIN)
+    // Criar novo usuário (AGENT ou SUPERVISOR) (apenas para ADMIN)
     static async createAgent(req, res) {
         try {
-            const { fullName, email } = req.body;
+            const { fullName, email, role = types_1.UserRole.AGENT, team_id } = req.body;
             // Validações básicas
             if (!fullName || !email) {
                 res.status(400).json({
@@ -88,6 +91,20 @@ class UserController {
             if (!auth_1.ValidationUtils.isValidEmail(email)) {
                 res.status(400).json({
                     error: 'Email inválido'
+                });
+                return;
+            }
+            // Validar role
+            if (role && !Object.values(types_1.UserRole).includes(role)) {
+                res.status(400).json({
+                    error: 'Role inválido'
+                });
+                return;
+            }
+            // Se for SUPERVISOR, team_id é obrigatório
+            if (role === types_1.UserRole.SUPERVISOR && !team_id) {
+                res.status(400).json({
+                    error: 'Supervisores devem pertencer a uma equipe'
                 });
                 return;
             }
@@ -108,11 +125,13 @@ class UserController {
                 email: auth_1.ValidationUtils.sanitizeInput(email),
                 full_name: fullName.trim(),
                 encrypted_password: hashedPassword,
-                role: types_1.UserRole.AGENT,
+                role: role,
+                team_id: team_id || null,
                 is_two_factor_enabled: false
             });
+            const roleLabel = role === types_1.UserRole.SUPERVISOR ? 'Supervisor' : 'Atendente';
             res.status(201).json({
-                message: 'Atendente criado com sucesso',
+                message: `${roleLabel} criado com sucesso`,
                 user: {
                     id: newUser.id,
                     email: newUser.email,

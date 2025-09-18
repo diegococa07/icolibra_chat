@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.logAuthenticatedAction = exports.optionalAuth = exports.requireOwnershipOrAdmin = exports.requireAdminOrAgent = exports.requireAgent = exports.requireAdmin = exports.requireRole = exports.requireTemporaryAuth = exports.requireFullAuth = exports.requireAuth = exports.authenticate = exports.AuthMiddleware = void 0;
+exports.logAuthenticatedAction = exports.optionalAuth = exports.requireOwnershipOrAdmin = exports.requireAdminOrSupervisorOrAgent = exports.requireAdminOrSupervisor = exports.requireAdminOrAgent = exports.requireSupervisor = exports.requireAgent = exports.requireAdmin = exports.requireRole = exports.requireTemporaryAuth = exports.requireFullAuth = exports.requireAuth = exports.authenticate = exports.AuthMiddleware = void 0;
 const auth_1 = require("../utils/auth");
 const types_1 = require("../types");
 class AuthMiddleware {
@@ -167,6 +167,24 @@ class AuthMiddleware {
         AuthMiddleware.requireRole([types_1.UserRole.ADMIN, types_1.UserRole.AGENT])(req, res, next);
     }
     /**
+     * Middleware para verificar se o usuário é Supervisor
+     */
+    static requireSupervisor(req, res, next) {
+        AuthMiddleware.requireRole(types_1.UserRole.SUPERVISOR)(req, res, next);
+    }
+    /**
+     * Middleware para verificar se o usuário é Admin ou Supervisor
+     */
+    static requireAdminOrSupervisor(req, res, next) {
+        AuthMiddleware.requireRole([types_1.UserRole.ADMIN, types_1.UserRole.SUPERVISOR])(req, res, next);
+    }
+    /**
+     * Middleware para verificar se o usuário é Admin, Supervisor ou Agent
+     */
+    static requireAdminOrSupervisorOrAgent(req, res, next) {
+        AuthMiddleware.requireRole([types_1.UserRole.ADMIN, types_1.UserRole.SUPERVISOR, types_1.UserRole.AGENT])(req, res, next);
+    }
+    /**
      * Middleware para verificar se o usuário pode acessar dados de outro usuário
      * Admins podem acessar qualquer usuário, Agents só podem acessar seus próprios dados
      */
@@ -254,7 +272,10 @@ exports.requireTemporaryAuth = AuthMiddleware.requireTemporaryAuth;
 exports.requireRole = AuthMiddleware.requireRole;
 exports.requireAdmin = AuthMiddleware.requireAdmin;
 exports.requireAgent = AuthMiddleware.requireAgent;
+exports.requireSupervisor = AuthMiddleware.requireSupervisor;
 exports.requireAdminOrAgent = AuthMiddleware.requireAdminOrAgent;
+exports.requireAdminOrSupervisor = AuthMiddleware.requireAdminOrSupervisor;
+exports.requireAdminOrSupervisorOrAgent = AuthMiddleware.requireAdminOrSupervisorOrAgent;
 exports.requireOwnershipOrAdmin = AuthMiddleware.requireOwnershipOrAdmin;
 exports.optionalAuth = AuthMiddleware.optionalAuth;
 exports.logAuthenticatedAction = AuthMiddleware.logAuthenticatedAction;

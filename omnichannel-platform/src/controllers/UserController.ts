@@ -8,6 +8,8 @@ import { UserRole } from '../types';
 interface CreateUserRequest {
   fullName: string;
   email: string;
+  role?: UserRole;
+  team_id?: string;
 }
 
 interface UpdateUserRequest {
@@ -18,30 +20,33 @@ interface UpdateUserRequest {
 export class UserController {
   
   // GET /api/users
-  // Listar todos os usuários AGENT (apenas para ADMIN)
+  // Listar todos os usuários AGENT e SUPERVISOR (apenas para ADMIN)
   static async listAgents(req: Request, res: Response): Promise<void> {
     try {
-      // Buscar apenas usuários com role AGENT
+      // Buscar usuários com role AGENT e SUPERVISOR
       const agents = await UserModel.findByRole(UserRole.AGENT);
+      const supervisors = await UserModel.findByRole(UserRole.SUPERVISOR);
+      const allUsers = [...agents, ...supervisors];
       
       // Remover dados sensíveis da resposta
-      const safeAgents = agents.map(agent => ({
-        id: agent.id,
-        email: agent.email,
-        full_name: agent.full_name,
-        role: agent.role,
-        is_two_factor_enabled: agent.is_two_factor_enabled,
-        created_at: agent.created_at
+      const safeUsers = allUsers.map(user => ({
+        id: user.id,
+        email: user.email,
+        full_name: user.full_name,
+        role: user.role,
+        team_id: user.team_id,
+        is_two_factor_enabled: user.is_two_factor_enabled,
+        created_at: user.created_at
       }));
 
       res.status(200).json({
-        message: 'Atendentes listados com sucesso',
-        users: safeAgents,
-        total: safeAgents.length
+        message: 'Usuários listados com sucesso',
+        users: safeUsers,
+        total: safeUsers.length
       });
 
     } catch (error) {
-      console.error('Erro ao listar atendentes:', error);
+      console.error('Erro ao listar usuários:', error);
       res.status(500).json({
         error: 'Erro interno do servidor'
       });
@@ -94,10 +99,10 @@ export class UserController {
   }
 
   // POST /api/users
-  // Criar novo usuário AGENT (apenas para ADMIN)
+  // Criar novo usuário (AGENT ou SUPERVISOR) (apenas para ADMIN)
   static async createAgent(req: Request, res: Response): Promise<void> {
     try {
-      const { fullName, email }: CreateUserRequest = req.body;
+      const { fullName, email, role = UserRole.AGENT, team_id }: CreateUserRequest = req.body;
 
       // Validações básicas
       if (!fullName || !email) {
@@ -110,6 +115,22 @@ export class UserController {
       if (!ValidationUtils.isValidEmail(email)) {
         res.status(400).json({
           error: 'Email inválido'
+        });
+        return;
+      }
+
+      // Validar role
+      if (role && !Object.values(UserRole).includes(role)) {
+        res.status(400).json({
+          error: 'Role inválido'
+        });
+        return;
+      }
+
+      // Se for SUPERVISOR, team_id é obrigatório
+      if (role === UserRole.SUPERVISOR && !team_id) {
+        res.status(400).json({
+          error: 'Supervisores devem pertencer a uma equipe'
         });
         return;
       }
@@ -134,12 +155,15 @@ export class UserController {
         email: ValidationUtils.sanitizeInput(email),
         full_name: fullName.trim(),
         encrypted_password: hashedPassword,
-        role: UserRole.AGENT,
+        role: role,
+        team_id: team_id || undefined,
         is_two_factor_enabled: false
       });
 
+      const roleLabel = role === UserRole.SUPERVISOR ? 'Supervisor' : 'Atendente';
+
       res.status(201).json({
-        message: 'Atendente criado com sucesso',
+        message: `${roleLabel} criado com sucesso`,
         user: {
           id: newUser.id,
           email: newUser.email,
@@ -341,7 +365,7 @@ export class UserController {
       });
 
       // Desativar 2FA
-      await UserModel.toggleTwoFactor(id, false, null);
+      await UserModel.toggleTwoFactor(id, false, undefined);
 
       if (!updatedUser) {
         res.status(500).json({
@@ -368,7 +392,7 @@ export class UserController {
   // Estatísticas de usuários (apenas para ADMIN)
   static async getUserStats(req: Request, res: Response): Promise<void> {
     try {
-      const stats = await UserModel.countByRole();
+      const stats = await UserModel.getStatsByRole();
       
       res.status(200).json({
         message: 'Estatísticas obtidas com sucesso',

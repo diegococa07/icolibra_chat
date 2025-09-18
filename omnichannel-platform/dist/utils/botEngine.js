@@ -7,7 +7,21 @@ exports.BotEngine = void 0;
 const axios_1 = __importDefault(require("axios"));
 const Message_1 = require("../models/Message");
 const Settings_1 = require("../models/Settings");
+const SystemMessage_1 = require("../models/SystemMessage");
+const WriteAction_1 = require("../models/WriteAction");
+const ConversationVariable_1 = require("../models/ConversationVariable");
+const demoMode_1 = require("./demoMode");
 class BotEngine {
+    // Obter mensagem de boas-vindas customizável
+    static async getWelcomeMessage() {
+        const welcomeMessage = await SystemMessage_1.SystemMessageModel.getMessageContent('WELCOME_MESSAGE');
+        return welcomeMessage || 'Olá! Bem-vindo ao nosso atendimento. Como posso ajudá-lo hoje?';
+    }
+    // Obter mensagem de erro customizável
+    static async getErrorMessage() {
+        const errorMessage = await SystemMessage_1.SystemMessageModel.getMessageContent('BOT_ERROR_MESSAGE');
+        return errorMessage || 'Desculpe, ocorreu um erro. Por favor, tente novamente ou aguarde um momento para falar com um atendente.';
+    }
     // Encontrar nó inicial do fluxo
     static findInitialNode(flowDefinition) {
         if (!flowDefinition.nodes || flowDefinition.nodes.length === 0) {
@@ -53,6 +67,10 @@ class BotEngine {
                     return this.processIntegrationNode(node, conversationId, userData);
                 case 'transfer':
                     return this.processTransferNode(node);
+                case 'collectInfo':
+                    return this.processCollectInfoNode(node, conversationId);
+                case 'executeWriteAction':
+                    return this.processExecuteWriteActionNode(node, conversationId);
                 default:
                     return {
                         type: 'error',
@@ -62,9 +80,10 @@ class BotEngine {
         }
         catch (error) {
             console.error('Erro ao processar nó:', error);
+            const errorMessage = await BotEngine.getErrorMessage();
             return {
                 type: 'error',
-                content: 'Erro interno ao processar resposta'
+                content: errorMessage
             };
         }
     }
@@ -151,11 +170,13 @@ class BotEngine {
         }
     }
     // Processar nó "Transferir para Atendente"
-    static processTransferNode(node) {
+    static async processTransferNode(node) {
         const queue = node.data.queue || 'geral';
+        // Buscar mensagem customizável
+        const transferMessage = await SystemMessage_1.SystemMessageModel.getMessageContent('TRANSFER_TO_AGENT_MESSAGE');
         return {
             type: 'transfer',
-            content: 'Aguarde, um de nossos atendentes irá ajudá-lo em breve.',
+            content: transferMessage || 'Aguarde, um de nossos atendentes irá ajudá-lo em breve.',
             transfer_queue: queue
         };
     }
@@ -328,6 +349,168 @@ class BotEngine {
                 return 'Produto não encontrado.';
             default:
                 return 'Consulta realizada com sucesso!';
+        }
+    }
+    // Processar nó "Coletar Informação"
+    static async processCollectInfoNode(node, conversationId) {
+        const { userMessage, validationType, variableName, errorMessage } = node.data;
+        return {
+            type: 'input_request',
+            content: userMessage || 'Por favor, forneça a informação solicitada:',
+            requires_input: true,
+            input_type: validationType || 'text',
+            next_node_id: node.id,
+            conversation_id: conversationId,
+            // Dados adicionais para processamento da resposta
+            variable_name: variableName,
+            error_message: errorMessage || 'Formato inválido. Tente novamente.'
+        };
+    }
+    // Processar nó "Executar Ação de Escrita"
+    static async processExecuteWriteActionNode(node, conversationId) {
+        try {
+            const { writeActionId } = node.data;
+            if (!writeActionId) {
+                return {
+                    type: 'error',
+                    content: 'Ação de escrita não configurada'
+                };
+            }
+            // Buscar a ação de escrita
+            const writeAction = await WriteAction_1.WriteActionModel.findById(writeActionId);
+            if (!writeAction || !writeAction.is_active) {
+                return {
+                    type: 'error',
+                    content: 'Ação de escrita não encontrada ou inativa'
+                };
+            }
+            // Buscar variáveis da conversa
+            const variables = await ConversationVariable_1.ConversationVariableModel.getVariablesAsObject(conversationId);
+            // Verificar se todas as variáveis necessárias estão disponíveis
+            const requiredVariables = WriteAction_1.WriteActionModel.extractVariables(writeAction.request_body_template);
+            const missingVariables = requiredVariables.filter(varName => !variables[varName]);
+            if (missingVariables.length > 0) {
+                return {
+                    type: 'error',
+                    content: `Variáveis necessárias não encontradas: ${missingVariables.join(', ')}`
+                };
+            }
+            // Substituir variáveis no template
+            const requestBody = WriteAction_1.WriteActionModel.replaceVariables(writeAction.request_body_template, variables);
+            // Executar a ação de escrita
+            const success = await this.executeWriteAction(writeAction, requestBody);
+            return {
+                type: 'message',
+                content: success
+                    ? 'Dados atualizados com sucesso!'
+                    : 'Erro ao atualizar os dados. Tente novamente.',
+                next_node_id: node.id,
+                // Indicar se foi sucesso ou falha para o fluxo
+                action_result: success ? 'success' : 'failure'
+            };
+        }
+        catch (error) {
+            console.error('Erro ao executar ação de escrita:', error);
+            return {
+                type: 'error',
+                content: 'Erro interno ao executar a ação'
+            };
+        }
+    }
+    // Executar ação de escrita no ERP
+    static async executeWriteAction(writeAction, requestBody) {
+        try {
+            const isDemo = await demoMode_1.DemoModeUtils.isDemoMode();
+            if (isDemo) {
+                // Modo demo - usar API mock interna
+                demoMode_1.DemoModeUtils.logDemo(`Executando ação: ${writeAction.name}`);
+                const baseUrl = process.env.API_BASE_URL || 'http://localhost:3000';
+                const url = `${baseUrl}/api/mock-erp${writeAction.endpoint_url}`;
+                const response = await (0, axios_1.default)({
+                    method: writeAction.http_method,
+                    url: url,
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    data: writeAction.http_method !== 'GET' ? JSON.parse(requestBody) : undefined,
+                    timeout: 30000
+                });
+                demoMode_1.DemoModeUtils.logDemo(`Resposta da API Mock:`, response.data);
+                return response.status >= 200 && response.status < 300;
+            }
+            else {
+                // Modo produção - usar ERP real
+                const settings = await Settings_1.SettingsModel.getSettings();
+                if (!settings || !settings.erp_base_url || !settings.erp_auth_token) {
+                    console.error('Configurações do ERP não encontradas');
+                    return false;
+                }
+                const url = `${settings.erp_base_url}${writeAction.endpoint_url}`;
+                const response = await (0, axios_1.default)({
+                    method: writeAction.http_method,
+                    url: url,
+                    headers: {
+                        'Authorization': `Bearer ${settings.erp_auth_token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    data: writeAction.http_method !== 'GET' ? JSON.parse(requestBody) : undefined,
+                    timeout: 30000
+                });
+                return response.status >= 200 && response.status < 300;
+            }
+        }
+        catch (error) {
+            console.error('Erro ao executar ação de escrita:', error);
+            return false;
+        }
+    }
+    // Validar entrada do usuário
+    static validateUserInput(input, validationType) {
+        switch (validationType) {
+            case 'email':
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailRegex.test(input)) {
+                    return { valid: false, error: 'Formato de e-mail inválido' };
+                }
+                break;
+            case 'phone':
+                // Aceitar formatos: (11) 99999-9999, 11999999999, +5511999999999
+                const phoneRegex = /^(\+55\s?)?(\(?\d{2}\)?\s?)?\d{4,5}-?\d{4}$/;
+                if (!phoneRegex.test(input.replace(/\s/g, ''))) {
+                    return { valid: false, error: 'Formato de telefone inválido' };
+                }
+                break;
+            case 'text':
+            default:
+                if (!input || input.trim().length === 0) {
+                    return { valid: false, error: 'Campo obrigatório' };
+                }
+                break;
+        }
+        return { valid: true };
+    }
+    // Processar resposta do usuário para nó "Coletar Informação"
+    static async processUserInputForCollectInfo(conversationId, userInput, nodeData) {
+        try {
+            const { validationType, variableName, errorMessage } = nodeData;
+            // Validar entrada
+            const validation = this.validateUserInput(userInput, validationType);
+            if (!validation.valid) {
+                return {
+                    success: false,
+                    error: errorMessage || validation.error || 'Entrada inválida'
+                };
+            }
+            // Salvar variável
+            await ConversationVariable_1.ConversationVariableModel.upsert(conversationId, variableName, userInput.trim());
+            return { success: true };
+        }
+        catch (error) {
+            console.error('Erro ao processar entrada do usuário:', error);
+            return {
+                success: false,
+                error: 'Erro interno ao processar a informação'
+            };
         }
     }
 }

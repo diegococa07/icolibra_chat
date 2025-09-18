@@ -1,7 +1,9 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ReportsController = void 0;
+const connection_1 = require("../database/connection");
 const Conversation_1 = require("../models/Conversation");
+const User_1 = require("../models/User");
 class ReportsController {
     // GET /api/reports/summary
     // Obter resumo de métricas para o período especificado (protegido - ADMIN)
@@ -137,7 +139,7 @@ class ReportsController {
      * Obter total de conversas encerradas no período
      */
     static async getTotalConversations(periodFilter) {
-        const result = await Conversation_1.ConversationModel.query(`
+        const result = await (0, connection_1.query)(`
       SELECT COUNT(*) as total
       FROM conversations 
       WHERE status = 'CLOSED' 
@@ -150,7 +152,7 @@ class ReportsController {
      * Obter conversas agrupadas por canal
      */
     static async getConversationsByChannel(periodFilter) {
-        const result = await Conversation_1.ConversationModel.query(`
+        const result = await (0, connection_1.query)(`
       SELECT 
         c.type as channel_type,
         CASE 
@@ -178,7 +180,7 @@ class ReportsController {
      */
     static async getAutomationEfficiency(periodFilter) {
         // Conversas resolvidas apenas pelo bot (sem assignee_id)
-        const botOnlyResult = await Conversation_1.ConversationModel.query(`
+        const botOnlyResult = await (0, connection_1.query)(`
       SELECT COUNT(*) as count
       FROM conversations 
       WHERE status = 'CLOSED' 
@@ -187,7 +189,7 @@ class ReportsController {
         AND assignee_id IS NULL
     `, [periodFilter.start_date, periodFilter.end_date]);
         // Conversas com intervenção humana (com assignee_id)
-        const humanInterventionResult = await Conversation_1.ConversationModel.query(`
+        const humanInterventionResult = await (0, connection_1.query)(`
       SELECT COUNT(*) as count
       FROM conversations 
       WHERE status = 'CLOSED' 
@@ -210,7 +212,7 @@ class ReportsController {
      */
     static async getAdditionalMetrics(periodFilter) {
         // Média de mensagens por conversa
-        const avgMessagesResult = await Conversation_1.ConversationModel.query(`
+        const avgMessagesResult = await (0, connection_1.query)(`
       SELECT 
         ROUND(AVG(message_count), 1) as avg_messages
       FROM (
@@ -226,7 +228,7 @@ class ReportsController {
       ) as conversation_stats
     `, [periodFilter.start_date, periodFilter.end_date]);
         // Conversas com protocolo registrado
-        const protocolResult = await Conversation_1.ConversationModel.query(`
+        const protocolResult = await (0, connection_1.query)(`
       SELECT 
         COUNT(*) as total,
         COUNT(external_protocol) as with_protocol
@@ -249,7 +251,7 @@ class ReportsController {
      * Calcular breakdown diário para relatório detalhado
      */
     static async calculateDailyBreakdown(periodFilter) {
-        const result = await Conversation_1.ConversationModel.query(`
+        const result = await (0, connection_1.query)(`
       SELECT 
         DATE(closed_at) as date,
         COUNT(*) as total_conversations,
@@ -314,7 +316,7 @@ class ReportsController {
      * Obter dados para exportação
      */
     static async getExportData(periodFilter) {
-        const result = await Conversation_1.ConversationModel.query(`
+        const result = await (0, connection_1.query)(`
       SELECT 
         conv.id,
         conv.customer_identifier,
@@ -340,11 +342,12 @@ class ReportsController {
         return result.rows;
     }
     /**
-     * Converter dados para formato CSV
+     * Converter dados para CSV
      */
     static convertToCSV(data) {
-        if (data.length === 0)
+        if (!data || data.length === 0) {
             return '';
+        }
         const headers = Object.keys(data[0]);
         const csvHeaders = headers.join(',');
         const csvRows = data.map(row => headers.map(header => {
@@ -352,6 +355,70 @@ class ReportsController {
             return typeof value === 'string' && value.includes(',') ? `"${value}"` : value;
         }).join(','));
         return [csvHeaders, ...csvRows].join('\n');
+    }
+    // GET /api/reports/performance
+    // Obter relatórios de performance (TMA e TMR) (protegido - ADMIN e SUPERVISOR)
+    static async getPerformance(req, res) {
+        try {
+            const { period = 'last30days', team_id } = req.query;
+            const currentUser = req.user;
+            let teamMemberIds;
+            // Se for supervisor, filtrar apenas sua equipe
+            if (currentUser.role === 'SUPERVISOR') {
+                const supervisorTeamId = await User_1.UserModel.getSupervisorTeamId(currentUser.userId);
+                if (supervisorTeamId) {
+                    const teamMembers = await User_1.UserModel.findByTeamId(supervisorTeamId);
+                    teamMemberIds = teamMembers.map(member => member.id);
+                }
+                else {
+                    teamMemberIds = []; // Se supervisor não tem equipe, não mostrar dados
+                }
+            }
+            else if (team_id && typeof team_id === 'string') {
+                // Se admin especificou uma equipe específica
+                const teamMembers = await User_1.UserModel.findByTeamId(team_id);
+                teamMemberIds = teamMembers.map(member => member.id);
+            }
+            // Calcular TMA (Tempo Médio de Atendimento)
+            const tmaSeconds = await Conversation_1.ConversationModel.calculateTMA(period, teamMemberIds);
+            const tmaFormatted = tmaSeconds ? Conversation_1.ConversationModel.formatTime(tmaSeconds) : null;
+            // Calcular TMR (Tempo de Primeira Resposta)
+            const tmrSeconds = await Conversation_1.ConversationModel.calculateTMR(period, teamMemberIds);
+            const tmrFormatted = tmrSeconds ? Conversation_1.ConversationModel.formatTime(tmrSeconds) : null;
+            // Calcular período para contexto
+            const periodFilter = ReportsController.calculatePeriodDates(period);
+            res.json({
+                success: true,
+                data: {
+                    period: {
+                        label: periodFilter?.label || period,
+                        start_date: periodFilter?.start_date,
+                        end_date: periodFilter?.end_date
+                    },
+                    performance_metrics: {
+                        tma: {
+                            seconds: tmaSeconds,
+                            formatted: tmaFormatted,
+                            description: 'Tempo Médio de Atendimento (do início ao fechamento da conversa)'
+                        },
+                        tmr: {
+                            seconds: tmrSeconds,
+                            formatted: tmrFormatted,
+                            description: 'Tempo de Primeira Resposta (do início até a primeira resposta do atendente)'
+                        }
+                    },
+                    team_filter: team_id ? { team_id } : null
+                }
+            });
+        }
+        catch (error) {
+            console.error('Erro ao obter relatórios de performance:', error);
+            res.status(500).json({
+                success: false,
+                error: 'Erro interno do servidor',
+                message: 'Não foi possível obter os relatórios de performance'
+            });
+        }
     }
 }
 exports.ReportsController = ReportsController;

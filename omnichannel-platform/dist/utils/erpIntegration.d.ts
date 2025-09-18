@@ -5,7 +5,7 @@ export declare class ERPIntegration {
      */
     static processConversationClosure(conversationId: string): Promise<void>;
     /**
-     * Buscar configurações do ERP no banco de dados
+     * Buscar configurações do ERP (com suporte ao modo demo)
      */
     private static getERPSettings;
     /**

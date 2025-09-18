@@ -6,10 +6,7 @@ export declare class ConversationModel {
     static findByStatus(status: ConversationStatus): Promise<Conversation[]>;
     static findByAssignee(assigneeId: string): Promise<Conversation[]>;
     static findByQueue(queue: string): Promise<Conversation[]>;
-    static findAll(limit?: number, offset?: number): Promise<{
-        conversations: Conversation[];
-        total: number;
-    }>;
+    static findAll(filters?: any, limit?: number, offset?: number): Promise<Conversation[]>;
     static update(id: string, updateData: Partial<CreateConversation>): Promise<Conversation | null>;
     static assignToAgent(id: string, assigneeId: string): Promise<Conversation | null>;
     static close(id: string): Promise<Conversation | null>;
@@ -28,5 +25,9 @@ export declare class ConversationModel {
         }[];
         avgResponseTime: number;
     }>;
+    static calculateTMA(period?: string, teamMemberIds?: string[]): Promise<number | null>;
+    static calculateTMR(period?: string, teamMemberIds?: string[]): Promise<number | null>;
+    static getPeriodDays(period: string): number;
+    static formatTime(seconds: number): string;
 }
 //# sourceMappingURL=Conversation.d.ts.map

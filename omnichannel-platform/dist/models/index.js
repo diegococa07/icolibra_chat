@@ -14,7 +14,7 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
     for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ChatbotFlowModel = exports.MessageModel = exports.ConversationModel = exports.ChannelModel = exports.SettingsModel = exports.UserModel = void 0;
+exports.ConversationVariableModel = exports.WriteActionModel = exports.SystemMessageModel = exports.TeamModel = exports.ChatbotFlowModel = exports.MessageModel = exports.ConversationModel = exports.ChannelModel = exports.SettingsModel = exports.UserModel = void 0;
 // Exportar todos os modelos
 var User_1 = require("./User");
 Object.defineProperty(exports, "UserModel", { enumerable: true, get: function () { return User_1.UserModel; } });
@@ -28,6 +28,14 @@ var Message_1 = require("./Message");
 Object.defineProperty(exports, "MessageModel", { enumerable: true, get: function () { return Message_1.MessageModel; } });
 var ChatbotFlow_1 = require("./ChatbotFlow");
 Object.defineProperty(exports, "ChatbotFlowModel", { enumerable: true, get: function () { return ChatbotFlow_1.ChatbotFlowModel; } });
+var Team_1 = require("./Team");
+Object.defineProperty(exports, "TeamModel", { enumerable: true, get: function () { return Team_1.TeamModel; } });
+var SystemMessage_1 = require("./SystemMessage");
+Object.defineProperty(exports, "SystemMessageModel", { enumerable: true, get: function () { return SystemMessage_1.SystemMessageModel; } });
+var WriteAction_1 = require("./WriteAction");
+Object.defineProperty(exports, "WriteActionModel", { enumerable: true, get: function () { return WriteAction_1.WriteActionModel; } });
+var ConversationVariable_1 = require("./ConversationVariable");
+Object.defineProperty(exports, "ConversationVariableModel", { enumerable: true, get: function () { return ConversationVariable_1.ConversationVariableModel; } });
 // Exportar tipos
 __exportStar(require("../types"), exports);
 //# sourceMappingURL=index.js.map

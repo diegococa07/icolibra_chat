@@ -66,5 +66,14 @@ router.put('/:id/assign', requireAuth, ConversationController.assignConversation
  */
 router.put('/:id/close', requireAuth, ConversationController.closeConversation);
 
+/**
+ * @route POST /api/conversations/:id/agent-message
+ * @desc Enviar mensagem como atendente
+ * @access Private (dashboard)
+ * @body { content: string }
+ * @returns { message: string, data: object }
+ */
+router.post('/:id/agent-message', requireAuth, ConversationController.sendAgentMessage);
+
 export default router;
 

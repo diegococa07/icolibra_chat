@@ -6,6 +6,7 @@ var UserRole;
 (function (UserRole) {
     UserRole["ADMIN"] = "ADMIN";
     UserRole["AGENT"] = "AGENT";
+    UserRole["SUPERVISOR"] = "SUPERVISOR";
 })(UserRole || (exports.UserRole = UserRole = {}));
 var ChannelType;
 (function (ChannelType) {

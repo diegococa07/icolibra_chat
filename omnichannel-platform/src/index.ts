@@ -10,8 +10,16 @@ import flowRoutes from './routes/flows';
 import conversationRoutes from './routes/conversations';
 import customerRoutes from './routes/customers';
 import reportsRoutes from './routes/reports';
+import teamRoutes from './routes/teams';
+import systemMessageRoutes from './routes/systemMessages';
+import writeActionRoutes from './routes/writeActions';
+import messageTemplateRoutes from './routes/messageTemplates';
+import campaignRoutes from './routes/campaigns';
+import mockErpRoutes from './routes/mockErp';
+import publicRoutes from './routes/public';
 import { logAuthenticatedAction } from './middleware/auth';
 import { socketManager } from './utils/socketManager';
+import { initializeJobs } from './jobs';
 
 // Carregar variáveis de ambiente
 dotenv.config();
@@ -25,7 +33,14 @@ socketManager.initialize(server);
 
 // Middlewares
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || '*',
+  origin: (origin, callback) => {
+    const allowedOrigins = process.env.CORS_ORIGIN?.split(',') || ['*'];
+    if (!origin || allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true
 }));
 
@@ -43,6 +58,13 @@ app.use('/api/flows', flowRoutes);
 app.use('/api/conversations', conversationRoutes);
 app.use('/api/customers', customerRoutes);
 app.use('/api/reports', reportsRoutes);
+app.use('/api/teams', teamRoutes);
+app.use('/api/system-messages', systemMessageRoutes);
+app.use('/api/write-actions', writeActionRoutes);
+app.use('/api/message-templates', messageTemplateRoutes);
+app.use('/api/campaigns', campaignRoutes);
+app.use('/api/mock-erp', mockErpRoutes);
+app.use('/api/public', publicRoutes);
 
 // Rota de health check
 app.get('/health', (req, res) => {
@@ -120,6 +142,11 @@ const startServer = async () => {
       console.log(`🏥 Health check: http://0.0.0.0:${PORT}/health`);
       console.log(`🗄️  Database check: http://0.0.0.0:${PORT}/health/database`);
       console.log('📝 Logs do servidor:');
+      
+      // Inicializar jobs
+      initializeJobs()
+        .then(() => console.log('🔄 Jobs de processamento em background inicializados'))
+        .catch(err => console.error('❌ Erro ao inicializar jobs:', err));
     });
 
   } catch (error) {

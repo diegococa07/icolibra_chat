@@ -2,6 +2,7 @@ import axios from 'axios';
 import { ConversationModel } from '../models/Conversation';
 import { MessageModel } from '../models/Message';
 import { SettingsModel } from '../models/Settings';
+import { UserModel } from '../models/User';
 import { emitConversationClosed } from './socketManager';
 
 // Interface para o payload de registro no ERP
@@ -38,6 +39,38 @@ interface ERPRegistrationResponse {
 interface ERPSettings {
   erp_api_base_url?: string;
   erp_api_auth_token?: string;
+}
+
+/**
+ * Detecta se estamos no modo de demonstração
+ * Verifica se existe um usuário demo@plataforma.com logado ou ativo
+ */
+async function isDemoMode(): Promise<boolean> {
+  try {
+    const demoUser = await UserModel.findByEmail('demo@plataforma.com');
+    return !!demoUser;
+  } catch (error) {
+    console.error('Erro ao verificar modo demo:', error);
+    return false;
+  }
+}
+
+/**
+ * Obter URL base para API baseada no modo (demo ou produção)
+ */
+async function getApiBaseUrl(): Promise<string> {
+  const isDemo = await isDemoMode();
+  
+  if (isDemo) {
+    // No modo demo, usar nossa API mock interna
+    const baseUrl = process.env.API_BASE_URL || 'http://localhost:3000';
+    console.log('🎭 Modo Demo ativado - usando API Mock interna');
+    return baseUrl;
+  }
+  
+  // Modo produção - usar configurações do sistema
+  const settings = await SettingsModel.findFirst();
+  return settings?.erp_api_base_url || '';
 }
 
 export class ERPIntegration {
@@ -109,10 +142,22 @@ export class ERPIntegration {
   }
 
   /**
-   * Buscar configurações do ERP no banco de dados
+   * Buscar configurações do ERP (com suporte ao modo demo)
    */
   private static async getERPSettings(): Promise<ERPSettings> {
     try {
+      const apiBaseUrl = await getApiBaseUrl();
+      const isDemo = await isDemoMode();
+      
+      if (isDemo) {
+        // Modo demo - usar configurações mock
+        return {
+          erp_api_base_url: apiBaseUrl,
+          erp_api_auth_token: 'demo-token-12345'
+        };
+      }
+      
+      // Modo produção - usar configurações reais
       const settings = await SettingsModel.findFirst();
       
       return {
